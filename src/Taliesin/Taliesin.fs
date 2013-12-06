@@ -40,7 +40,7 @@ type internal ResourceMessage<'TRequest, 'TResponse> =
     | Shutdown
 
 /// An HTTP resource agent.
-type Resource<'TRequest, 'TResponse> private (uriTemplate, allowedMethods, handlers, getRequestMethod, methodNotAllowedHandler) =
+type Resource<'TRequest, 'TResponse> private (uriTemplate, allowedMethods, handlers, getRequestMethod, send, methodNotAllowedHandler) =
     let onError = new Event<exn>()
     let agent = Agent<ResourceMessage<'TRequest, 'TResponse>>.Start(fun inbox ->
         let rec loop handlers = async {
@@ -51,7 +51,7 @@ type Resource<'TRequest, 'TResponse> private (uriTemplate, allowedMethods, handl
                     match handlers |> List.tryFind (fun (m, _) -> m = getRequestMethod request) with
                     | Some (_, h) -> h request
                     | None -> methodNotAllowedHandler allowedMethods request
-                do out.WriteByte(0uy) // TODO: write the response to the out stream
+                do! send out response
                 return! loop handlers
             | SetHandler(httpMethod, handler) ->
                 let handlers' =
@@ -131,7 +131,7 @@ type RouteSpec<'T> =
 /// A type provider could make this much nicer, e.g.:
 ///     let app = ResourceManager<"path/to/spec/as/string">
 ///     app.Root.Get(fun request -> async { return response })
-type ResourceManager<'TRequest, 'TResponse, 'TRoute when 'TRoute : equality>(routeSpec: RouteSpec<'TRoute>, getRequestMethod, methodNotAllowedHandler, uriMatcher) as x =
+type ResourceManager<'TRequest, 'TResponse, 'TRoute when 'TRoute : equality>(routeSpec: RouteSpec<'TRoute>, getRequestMethod, send, methodNotAllowedHandler, uriMatcher) as x =
     // Should this also be an Agent<'T>?
     inherit Dictionary<'TRoute, Resource<'TRequest, 'TResponse>>(HashIdentity.Structural)
 
@@ -139,7 +139,7 @@ type ResourceManager<'TRequest, 'TResponse, 'TRoute when 'TRoute : equality>(rou
     let onError = new Event<exn>()
 
     let apply resources subscriptions name uriTemplate (allowedMethods: HttpMethod list) =
-        let resource = new Resource<'TRequest, 'TResponse>(uriTemplate, allowedMethods, getRequestMethod, methodNotAllowedHandler)
+        let resource = new Resource<'TRequest, 'TResponse>(uriTemplate, allowedMethods, getRequestMethod, send, methodNotAllowedHandler)
         let resources' = (name, resource) :: resources
         let subscriptions' = resource.Connect(x, uriMatcher) :: subscriptions
         resources', subscriptions'
