@@ -1,11 +1,21 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio 2013
+VisualStudioVersion = 12.0.30501.0
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{F97286F6-9341-40D6-BBBA-C697E62A9854}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "content", "content", "{2272A6D4-C233-4E6F-B8D0-9C24FDB55EAB}"
+	ProjectSection(SolutionItems) = preProject
+		docs\content\index.fsx = docs\content\index.fsx
+		docs\content\tutorial.fsx = docs\content\tutorial.fsx
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{FA8096D0-F53E-4A80-A8F4-2C854E385A7A}"
+	ProjectSection(SolutionItems) = preProject
+		docs\tools\generate.fsx = docs\tools\generate.fsx
+		docs\tools\packages.config = docs\tools\packages.config
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "files", "files", "{79E3118B-F3E6-47C2-B9F4-BA2313E758C8}"
 EndProject
@@ -30,9 +40,14 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection
 EndProject
-Project("{4925A630-B079-445d-BCD4-3A9C94FE9307}") = "Taliesin", "src\Taliesin\Taliesin.fsproj", "84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Taliesin", "src\Taliesin\Taliesin.fsproj", "{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}"
 EndProject
-Project("{4925A630-B079-445d-BCD4-3A9C94FE9307}") = "Taliesin.Tests", "tests\Taliesin.Tests\Taliesin.Tests.fsproj", "81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Taliesin.Tests", "tests\Taliesin.Tests\Taliesin.Tests.fsproj", "{81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "templates", "templates", "{C3CB024C-DA89-4384-8D9C-6C776C50929F}"
+	ProjectSection(SolutionItems) = preProject
+		docs\tools\templates\template.cshtml = docs\tools\templates\template.cshtml
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -40,10 +55,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE}.Release|Any CPU.Build.0 = Release|Any CPU
 		{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -52,21 +63,18 @@ Global
 		{81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE}.Release|Any CPU.Build.0 = Release|Any CPU
-		{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{2272A6D4-C233-4E6F-B8D0-9C24FDB55EAB} = {F97286F6-9341-40D6-BBBA-C697E62A9854}
 		{FA8096D0-F53E-4A80-A8F4-2C854E385A7A} = {F97286F6-9341-40D6-BBBA-C697E62A9854}
 		{79E3118B-F3E6-47C2-B9F4-BA2313E758C8} = {F97286F6-9341-40D6-BBBA-C697E62A9854}
 		{9E7740B5-8FCA-4F52-8997-CBFB0E6C1392} = {79E3118B-F3E6-47C2-B9F4-BA2313E758C8}
+		{C3CB024C-DA89-4384-8D9C-6C776C50929F} = {FA8096D0-F53E-4A80-A8F4-2C854E385A7A}
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
 		StartupItem = src\Taliesin\Taliesin.fsproj
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
 	EndGlobalSection
 EndGlobal

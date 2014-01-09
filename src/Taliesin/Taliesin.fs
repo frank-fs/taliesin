@@ -4,30 +4,44 @@ open System
 open System.Collections.Generic
 open System.IO
 
+/// An `HttpApplication` accepts a request and asynchronously produces a response.
 type HttpApplication<'TRequest, 'TResponse> = 'TRequest -> Async<'TResponse>
 
-type HttpMethod =
-    | Get
-    | Head
-    | Post
-    | Put
-    | Patch
-    | Delete
-    | Trace
-    | Options
-    | ExtensionHttpMethod of string
-
-type HttpAction<'TRequest, 'TResponse> = HttpMethod * HttpApplication<'TRequest, 'TResponse>
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module HttpAction =
-    let get h : HttpAction<_,_> = Get, h
-    let head h : HttpAction<_,_> = Head, h
-    let put h : HttpAction<_,_> = Put, h
-    let post h : HttpAction<_,_> = Post, h
-    let delete h : HttpAction<_,_> = Delete, h
-    let trace h : HttpAction<_,_> = Trace, h
-    let options h : HttpAction<_,_> = Options, h
+/// Message type that associates an `HttpApplication with an HTTP method.
+type HttpMethodHandler<'TRequest, 'TResponse> =
+    | GET     of HttpApplication<'TRequest, 'TResponse>
+    | HEAD    of HttpApplication<'TRequest, 'TResponse>
+    | POST    of HttpApplication<'TRequest, 'TResponse>
+    | PUT     of HttpApplication<'TRequest, 'TResponse>
+    | PATCH   of HttpApplication<'TRequest, 'TResponse>
+    | DELETE  of HttpApplication<'TRequest, 'TResponse>
+    | TRACE   of HttpApplication<'TRequest, 'TResponse>
+    | OPTIONS of HttpApplication<'TRequest, 'TResponse>
+    | Custom  of string * HttpApplication<'TRequest, 'TResponse>
+    with
+    /// Gets the method name for the current `HttpMethodHandler`.
+    member x.Method =
+        match x with
+        | GET       _ -> "GET"
+        | HEAD      _ -> "HEAD"
+        | POST      _ -> "POST"
+        | PUT       _ -> "PUT"
+        | PATCH     _ -> "PATCH"
+        | DELETE    _ -> "DELETE"
+        | TRACE     _ -> "TRACE"
+        | OPTIONS   _ -> "OPTIONS"
+        | Custom(m,_) -> m
+    member x.Handler =
+        match x with
+        | GET       h -> h
+        | HEAD      h -> h
+        | POST      h -> h
+        | PUT       h -> h
+        | PATCH     h -> h
+        | DELETE    h -> h
+        | TRACE     h -> h
+        | OPTIONS   h -> h
+        | Custom(_,h) -> h
 
 /// Alias `MailboxProcessor<'T>` as `Agent<'T>`.
 type Agent<'T> = MailboxProcessor<'T>
@@ -35,45 +49,36 @@ type Agent<'T> = MailboxProcessor<'T>
 /// Messages used by the HTTP resource agent.
 type internal ResourceMessage<'TRequest, 'TResponse> =
     | Request of 'TRequest * Stream
-    | SetHandler of HttpAction<'TRequest, 'TResponse>
+    | SetHandler of HttpMethodHandler<'TRequest, 'TResponse>
     | Error of exn
     | Shutdown
 
 /// An HTTP resource agent.
-type Resource<'TRequest, 'TResponse> private (uriTemplate, allowedMethods, handlers, getRequestMethod, send, methodNotAllowedHandler) =
+type Resource<'TRequest, 'TResponse>(uriTemplate, handlers: HttpMethodHandler<_,_> list, getRequestMethod, send, methodNotAllowedHandler) =
+    let allowedMethods = handlers |> List.map (fun m -> m.Method)
     let onError = new Event<exn>()
     let agent = Agent<ResourceMessage<'TRequest, 'TResponse>>.Start(fun inbox ->
-        let rec loop handlers = async {
+        let rec loop allowedMethods (handlers: HttpMethodHandler<_,_> list) = async {
             let! msg = inbox.Receive()
             match msg with
             | Request(request, out) ->
                 let! response =
-                    match handlers |> List.tryFind (fun (m, _) -> m = getRequestMethod request) with
-                    | Some (_, h) -> h request
+                    match handlers |> List.tryFind (fun h -> h.Method = getRequestMethod request) with
+                    | Some h -> h.Handler request
                     | None -> methodNotAllowedHandler allowedMethods request
                 do! send out response
-                return! loop handlers
-            | SetHandler(httpMethod, handler) ->
-                let handlers' =
-                    match allowedMethods |> List.tryFind (fun m -> m = httpMethod) with
-                    | None -> handlers
-                    | Some _ -> (httpMethod, handler)::(List.filter (fun (m,h) -> m <> httpMethod) handlers)
-                return! loop handlers'
+                return! loop allowedMethods handlers
+            | SetHandler(handler) ->
+                let handlers' = handler::(handlers |> List.filter (fun h -> h.Method <> handler.Method))
+                return! loop allowedMethods handlers'
             | Error exn ->
                 onError.Trigger(exn)
-                return! loop handlers
+                return! loop allowedMethods handlers
             | Shutdown -> ()
         }
             
-        loop handlers
+        loop allowedMethods handlers
     )
-
-    new (uriTemplate, handlers, getRequestMethod, send, methodNotAllowedHandler) =
-        let allowedMethods = handlers |> List.map fst
-        Resource(uriTemplate, allowedMethods, handlers, getRequestMethod, send, methodNotAllowedHandler)
-
-    new (uriTemplate, allowedMethods, getRequestMethod, send, methodNotAllowedHandler) =
-        Resource(uriTemplate, allowedMethods, [], getRequestMethod, send, methodNotAllowedHandler)
 
     /// Connect the resource to the request event stream.
     /// This method applies a default filter to subscribe only to events
@@ -81,14 +86,13 @@ type Resource<'TRequest, 'TResponse> private (uriTemplate, allowedMethods, handl
     // NOTE: This should be internal if used in a type provider.
     abstract Connect : IObservable<'TRequest * Stream> * (string -> 'TRequest -> bool) -> IDisposable
     default x.Connect(observable, uriMatcher) =
-        (observable
-         |> Observable.filter (fun (request, _) -> uriMatcher uriTemplate request)
-        ).Subscribe(x)
+        let uriMatcher = uriMatcher uriTemplate
+        (observable |> Observable.filter (fun (request, _) -> uriMatcher request)).Subscribe(x)
 
     /// Sets the handler for the specified `HttpMethod`.
     /// Ideally, we would expose methods matching the allowed methods.
-    member x.SetHandler(httpMethod, handler) =
-        agent.Post <| SetHandler(httpMethod, handler)
+    member x.SetHandler(handler) =
+        agent.Post <| SetHandler(handler)
 
     /// Stops the resource agent.
     member x.Shutdown() = agent.Post Shutdown
@@ -108,67 +112,73 @@ type Resource<'TRequest, 'TResponse> private (uriTemplate, allowedMethods, handl
 type UriRouteTemplate = string
 
 /// Defines the route for a specific resource
-type RouteDef<'T> = 'T * UriRouteTemplate * HttpMethod list
+type RouteDef<'TName, 'TRequest, 'TResponse> = 'TName * UriRouteTemplate * HttpMethodHandler<'TRequest, 'TResponse> list
 
 /// Defines the tree type for specifying resource routes
 /// Example:
 ///     type Routes = Root | About | Customers | Customer
 ///     let spec =
-///         RouteNode((Home, "", [HttpMethod.Get]),
-///                   [ RouteLeaf((About, "about", [HttpMethod.Get]))
-///                     RouteNode((Customers, "customers", [HttpMethod.Get; HttpMethod.Post]),
-///                               [ RouteLeaf((Customer, "{id}", [HttpMethod.Get; HttpMethod.Put; HttpMethod.Delete]))
-///                               ])
-///                   ])            
-type RouteSpec<'T> =
-    | RouteLeaf of RouteDef<'T>
-    | RouteNode of RouteDef<'T> * RouteSpec<'T> list
+///         RouteNode((Home, "", [GET]),
+///         [
+///             RouteLeaf(About, "about", [GET])
+///             RouteNode((Customers, "customers", [GET; POST]),
+///             [
+///                 RouteLeaf(Customer, "{id}", [GET; PUT; DELETE])
+///             ])
+///         ])            
+type RouteSpec<'TRoute, 'TRequest, 'TResponse> =
+    | RouteLeaf of RouteDef<'TRoute, 'TRequest, 'TResponse>
+    | RouteNode of RouteDef<'TRoute, 'TRequest, 'TResponse> * RouteSpec<'TRoute, 'TRequest, 'TResponse> list
 
 /// Manages traffic flow within the application to specific routes.
 /// Connect resource handlers using:
-///     let app = ResourceManager<Routes>(spec)
-///     app.[Root].SetHandler(HttpMethod.Get, (fun request -> async { return response }))
+///     let app = ResourceManager<HttpRequestMessage, HttpResponseMessage, Routes>(spec)
+///     app.[Root].SetHandler(GET, (fun request -> async { return response }))
 /// A type provider could make this much nicer, e.g.:
 ///     let app = ResourceManager<"path/to/spec/as/string">
 ///     app.Root.Get(fun request -> async { return response })
-type ResourceManager<'TRequest, 'TResponse, 'TRoute when 'TRoute : equality>(routeSpec: RouteSpec<'TRoute>, getRequestMethod, send, methodNotAllowedHandler, uriMatcher) as x =
+type ResourceManager<'TRequest, 'TResponse, 'TRoute when 'TRoute : equality>(getRequestMethod, send, methodNotAllowedHandler, uriMatcher) =
     // Should this also be an Agent<'T>?
     inherit Dictionary<'TRoute, Resource<'TRequest, 'TResponse>>(HashIdentity.Structural)
 
     let onRequest = new Event<'TRequest * Stream>()
     let onError = new Event<exn>()
 
-    let apply resources subscriptions name uriTemplate (allowedMethods: HttpMethod list) =
-        let resource = new Resource<'TRequest, 'TResponse>(uriTemplate, allowedMethods, getRequestMethod, send, methodNotAllowedHandler)
+    let apply manager resources subscriptions name uriTemplate (handlers: HttpMethodHandler<_,_> list) =
+        let resource = new Resource<'TRequest, 'TResponse>(uriTemplate, handlers, getRequestMethod, send, methodNotAllowedHandler)
         let resources' = (name, resource) :: resources
-        let subscriptions' = resource.Connect(x, uriMatcher) :: subscriptions
+        let subscriptions' = resource.Connect(manager, uriMatcher) :: subscriptions
         resources', subscriptions'
 
-    let rec applyRouteSpec uriTemplate resources subscriptions = function
-        | RouteNode((name, template, allowedMethods), nestedRoutes) ->
+    let rec applyRouteSpec manager uriTemplate resources subscriptions = function
+        | RouteNode((name, template, handlers), nestedRoutes) ->
             let uriTemplate' = uriTemplate + "/" + template
-            let resources', subscriptions' = apply resources subscriptions name uriTemplate' allowedMethods
-            applyNestedRoutes uriTemplate' resources' subscriptions' nestedRoutes
-        | RouteLeaf(name, template, allowedMethods) ->
+            let resources', subscriptions' = apply manager resources subscriptions name uriTemplate' handlers
+            applyNestedRoutes manager uriTemplate' resources' subscriptions' nestedRoutes
+        | RouteLeaf(name, template, handlers) ->
             let uriTemplate' = uriTemplate + "/" + template
-            apply resources subscriptions name uriTemplate' allowedMethods
-    and applyNestedRoutes uriTemplate resources subscriptions routes =
+            apply manager resources subscriptions name uriTemplate' handlers
+
+    and applyNestedRoutes manager uriTemplate resources subscriptions routes =
         match routes with
         | [] -> resources, subscriptions
         | route::routes ->
-            let resources', subscriptions' = applyRouteSpec uriTemplate resources subscriptions route
+            let resources', subscriptions' = applyRouteSpec manager uriTemplate resources subscriptions route
             match routes with
             | [] -> resources', subscriptions'
-            | _ -> applyNestedRoutes uriTemplate resources' subscriptions' routes
+            | _ -> applyNestedRoutes manager uriTemplate resources' subscriptions' routes
 
-    let resources, subscriptions = applyRouteSpec "" [] [] routeSpec
-    do for name, resource in resources do x.Add(name, resource)
-
-    member x.Dispose() =
-        // Dispose all current event subscriptions.
-        for disposable in subscriptions do disposable.Dispose()
-        // Shutdown all resource agents.
-        for resource in x.Values do resource.Shutdown()
+    member x.Start(routeSpec: RouteSpec<_,_,_>) =
+        // TODO: This should probably manage a supervising agent of its own.
+        let resources, subscriptions = applyRouteSpec x "" [] [] routeSpec
+        for name, resource in resources do x.Add(name, resource)
+        { new IDisposable with
+            member __.Dispose() =
+                // Dispose all current event subscriptions.
+                for (disposable: IDisposable) in subscriptions do disposable.Dispose()
+                // Shutdown all resource agents.
+                for resource in x.Values do resource.Shutdown()
+        }
 
     [<CLIEvent>]
     member x.Error = onError.Publish
@@ -179,7 +189,4 @@ type ResourceManager<'TRequest, 'TResponse, 'TRoute when 'TRoute : equality>(rou
     interface IObserver<'TRequest * Stream> with
         member x.OnNext(value) = onRequest.Trigger(value)
         member x.OnError(exn) = onError.Trigger(exn)
-        member x.OnCompleted() = () // dispose the resources
-
-    interface IDisposable with
-        member x.Dispose() = x.Dispose()
+        member x.OnCompleted() = ()
