@@ -5,12 +5,13 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>81dc2359-aabe-4fa3-ae6a-3191c8c0d6ce</ProjectGuid>
+    <ProjectGuid>81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>Taliesin.Tests</RootNamespace>
     <AssemblyName>Taliesin.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <Name>Taliesin.Tests</Name>
+    <ProductVersion>12.0.0</ProductVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -36,10 +37,6 @@
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Fuchu">
-      <HintPath>..\..\packages\Fuchu.0.3.0.1\lib\net40-client\Fuchu.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
@@ -47,9 +44,11 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+    <Reference Include="Fuchu">
+      <HintPath>..\..\packages\Fuchu.0.4.0.0\lib\Fuchu.dll</HintPath>
+    </Reference>
     <Reference Include="Unquote">
       <HintPath>..\..\packages\Unquote.2.2.2\lib\net40\Unquote.dll</HintPath>
-      <Private>True</Private>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -60,8 +59,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Taliesin\Taliesin.fsproj">
       <Name>Taliesin</Name>
-      <Project>{84d4bfcd-5689-4cf4-8b4c-90bb7be8ab19}</Project>
-      <Private>True</Private>
+      <Project>84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19</Project>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup>

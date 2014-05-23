@@ -68,12 +68,12 @@ type Resource<'TRequest, 'TResponse> private (uriTemplate, allowedMethods, handl
         loop handlers
     )
 
-    new (uriTemplate, handlers, getRequestMethod, methodNotAllowedHandler) =
+    new (uriTemplate, handlers, getRequestMethod, send, methodNotAllowedHandler) =
         let allowedMethods = handlers |> List.map fst
-        Resource(uriTemplate, allowedMethods, handlers, getRequestMethod, methodNotAllowedHandler)
+        Resource(uriTemplate, allowedMethods, handlers, getRequestMethod, send, methodNotAllowedHandler)
 
-    new (uriTemplate, allowedMethods, getRequestMethod, methodNotAllowedHandler) =
-        Resource(uriTemplate, allowedMethods, [], getRequestMethod, methodNotAllowedHandler)
+    new (uriTemplate, allowedMethods, getRequestMethod, send, methodNotAllowedHandler) =
+        Resource(uriTemplate, allowedMethods, [], getRequestMethod, send, methodNotAllowedHandler)
 
     /// Connect the resource to the request event stream.
     /// This method applies a default filter to subscribe only to events
