@@ -3,6 +3,7 @@
 open System
 open System.Collections.Generic
 open System.IO
+open Dyfrig
 
 /// An `HttpApplication` accepts a request and asynchronously produces a response.
 type HttpApplication<'TRequest, 'TResponse> = 'TRequest -> Async<'TResponse>
@@ -190,3 +191,32 @@ type ResourceManager<'TRequest, 'TResponse, 'TRoute when 'TRoute : equality>(get
         member x.OnNext(value) = onRequest.Trigger(value)
         member x.OnError(exn) = onError.Trigger(exn)
         member x.OnCompleted() = ()
+
+module Dyfrig =
+
+    let private requestMethod (env: Environment) = env.RequestMethod
+    let private send (out: Stream) (response: byte[]) = out.AsyncWrite(response)
+    let private notAllowed allowed env =
+        allowed
+        |> List.reduce (fun a b -> a + " " + b)
+        |> sprintf "405 Method Not Allowed. Try one of %s"
+        |> System.Text.Encoding.ASCII.GetBytes
+        |> async.Return
+    let private uriMatcher uriTemplate (env: Environment) =
+        // TODO: Account for URI template patterns
+        uriTemplate = env.RequestPathBase + env.RequestPath
+
+    type DyfrigResourceManager<'TRoute when 'TRoute : equality>() =
+        inherit ResourceManager<Environment,byte[],'TRoute>(requestMethod, send, notAllowed, uriMatcher)
+
+    let router<'TRoute when 'TRoute : equality> routeSpec : OwinApp =
+        let manager = DyfrigResourceManager<'TRoute>()
+        // When and how to dispose this?
+        let subscription = manager.Start routeSpec
+        let client = manager :> IObserver<_>
+        fun env -> async {
+            // When and how to dispose this?
+            let env = new Environment(env)
+            let out = env.ResponseBody
+            client.OnNext(env, out)
+        }
