@@ -1,9 +1,38 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Taliesin", "src\Taliesin\Taliesin.fsproj", "{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}"
+Project("{4925A630-B079-445d-BCD4-3A9C94FE9307}") = "Taliesin", "src\Taliesin\Taliesin.fsproj", "84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Taliesin.Tests", "tests\Taliesin.Tests\Taliesin.Tests.fsproj", "{81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE}"
+Project("{4925A630-B079-445d-BCD4-3A9C94FE9307}") = "Taliesin.Tests", "tests\Taliesin.Tests\Taliesin.Tests.fsproj", "81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{F97286F6-9341-40D6-BBBA-C697E62A9854}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "content", "content", "{2272A6D4-C233-4E6F-B8D0-9C24FDB55EAB}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{FA8096D0-F53E-4A80-A8F4-2C854E385A7A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "files", "files", "{79E3118B-F3E6-47C2-B9F4-BA2313E758C8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "img", "img", "{9E7740B5-8FCA-4F52-8997-CBFB0E6C1392}"
+	ProjectSection(SolutionItems) = preProject
+		docs\files\img\logo.png = docs\files\img\logo.png
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "nuget", "nuget", "{844F65D6-BD26-414A-9165-D6E7297427B6}"
+	ProjectSection(SolutionItems) = preProject
+		nuget\publish.cmd = nuget\publish.cmd
+		nuget\Taliesin.nuspec = nuget\Taliesin.nuspec
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{56E6343A-906C-43D5-B335-3509B3C2CD1D}"
+	ProjectSection(SolutionItems) = preProject
+		build.cmd = build.cmd
+		build.fsx = build.fsx
+		build.sh = build.sh
+		LICENSE = LICENSE
+		README.md = README.md
+		RELEASE_NOTES.md = RELEASE_NOTES.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,14 +40,23 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}.Release|Any CPU.Build.0 = Release|Any CPU
 		{81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{81DC2359-AABE-4FA3-AE6A-3191C8C0D6CE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{2272A6D4-C233-4E6F-B8D0-9C24FDB55EAB} = {F97286F6-9341-40D6-BBBA-C697E62A9854}
+		{FA8096D0-F53E-4A80-A8F4-2C854E385A7A} = {F97286F6-9341-40D6-BBBA-C697E62A9854}
+		{79E3118B-F3E6-47C2-B9F4-BA2313E758C8} = {F97286F6-9341-40D6-BBBA-C697E62A9854}
+		{9E7740B5-8FCA-4F52-8997-CBFB0E6C1392} = {79E3118B-F3E6-47C2-B9F4-BA2313E758C8}
+	EndGlobalSection
+	GlobalSection(MonoDevelopProperties) = preSolution
+		StartupItem = src\Taliesin\Taliesin.fsproj
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

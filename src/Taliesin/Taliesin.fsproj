@@ -5,12 +5,13 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>84d4bfcd-5689-4cf4-8b4c-90bb7be8ab19</ProjectGuid>
+    <ProjectGuid>84D4BFCD-5689-4CF4-8B4C-90BB7BE8AB19</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>Taliesin</RootNamespace>
     <AssemblyName>Taliesin</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <Name>Taliesin</Name>
+    <ProductVersion>12.0.0</ProductVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>

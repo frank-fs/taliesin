@@ -29,8 +29,7 @@ _ReSharper*/
 [Tt]est[Rr]esult*
 build/
 deploy/
-docs/
-nuget/
+docs/tools/
 packages/
 test/
-.build/
+*.userprefs
