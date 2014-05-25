@@ -151,13 +151,16 @@ type ResourceManager<'TRequest, 'TResponse, 'TRoute when 'TRoute : equality>(get
         let subscriptions' = resource.Connect(manager, uriMatcher) :: subscriptions
         resources', subscriptions'
 
+    let concatUriTemplate baseTemplate template =
+        if String.IsNullOrEmpty baseTemplate then template else baseTemplate + "/" + template
+
     let rec applyRouteSpec manager uriTemplate resources subscriptions = function
         | RouteNode((name, template, handlers), nestedRoutes) ->
-            let uriTemplate' = uriTemplate + "/" + template
+            let uriTemplate' = concatUriTemplate uriTemplate template
             let resources', subscriptions' = apply manager resources subscriptions name uriTemplate' handlers
             applyNestedRoutes manager uriTemplate' resources' subscriptions' nestedRoutes
         | RouteLeaf(name, template, handlers) ->
-            let uriTemplate' = uriTemplate + "/" + template
+            let uriTemplate' = concatUriTemplate uriTemplate template
             apply manager resources subscriptions name uriTemplate' handlers
 
     and applyNestedRoutes manager uriTemplate resources subscriptions routes =
@@ -202,9 +205,31 @@ module Dyfrig =
         |> sprintf "405 Method Not Allowed. Try one of %s"
         |> System.Text.Encoding.ASCII.GetBytes
         |> async.Return
+
+    // TODO: Update Dyfrig dependency to get this directly from env.GetRequestUri()
+    let private reconstructUri (env: Environment) =
+        let uri =
+            env.RequestScheme + "://" +
+            (env.RequestHeaders.["Host"] |> Seq.head) +
+            env.RequestPathBase +
+            env.RequestPath
+                
+        if String.IsNullOrEmpty env.RequestQueryString
+        then uri
+        else uri + "?" + env.RequestQueryString
+
     let private uriMatcher uriTemplate (env: Environment) =
-        // TODO: Account for URI template patterns
-        uriTemplate = env.RequestPathBase + env.RequestPath
+        "/" + uriTemplate = env.RequestPath
+//        // TODO: Do this with F# rather than System.ServiceModel. This could easily use a Regex pattern.
+//        let template = UriTemplate(uriTemplate)
+//        let requestUri = Uri(reconstructUri env)
+//        let baseUri = requestUri
+//        let result = template.Match(baseUri, requestUri)
+//        // TODO: Return the match result as well as true/false, as we can retrieve parameter values this way.
+//        if result = null then false else
+//        // TODO: Investigate ways to avoid mutation.
+//        env.Add("taliesin.UriTemplateMatch", result) |> ignore
+//        true
 
     type DyfrigResourceManager<'TRoute when 'TRoute : equality>() =
         inherit ResourceManager<Environment,byte[],'TRoute>(requestMethod, send, notAllowed, uriMatcher)

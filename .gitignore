@@ -27,9 +27,10 @@ obj/
 [Rr]elease*/
 _ReSharper*/
 [Tt]est[Rr]esult*
-build/
-deploy/
-docs/tools/
 packages/
-test/
-*.userprefs
+.nuget/
+docs/output/
+temp/
+gh-pages/
+Backup/
+UpgradeLog*.htm

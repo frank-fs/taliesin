@@ -8,7 +8,7 @@ open Fuchu
 open Swensen.Unquote
 open Taliesin
 
-type Routes = Root | About | Customers | Customer
+type Resources = Root | About | Customers | Customer
 
 [<Tests>]
 let tests =
@@ -30,14 +30,16 @@ let tests =
     testList "dyfrig" [
         testCase "valid GET /" <| fun _ ->
             let out = new MemoryStream()
+            let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
+            headers.Add("Host", [|"localhost"|])
             let env = new Environment(
                             requestMethod = "GET",
                             requestScheme = "http",
-                            requestPathBase = "/",
-                            requestPath = "",
+                            requestPathBase = "",
+                            requestPath = "/",
                             requestQueryString = "",
                             requestProtocol = "HTTP/1.1",
-                            requestHeaders = (Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>),
+                            requestHeaders = headers,
                             responseBody = (out :> Stream))
             client.OnNext(env, out :> Stream)
             async {
@@ -48,43 +50,69 @@ let tests =
             }
             |> Async.RunSynchronously
 
-//        testCase "valid GET /about" <| fun _ ->
-//            let out = new MemoryStream()
-//            let env = new Environment(
-//                            requestMethod = "GET",
-//                            requestScheme = "http",
-//                            requestPathBase = "/",
-//                            requestPath = "about",
-//                            requestQueryString = "",
-//                            requestProtocol = "HTTP/1.1",
-//                            requestHeaders = (Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>),
-//                            responseBody = (out :> Stream))
-//            client.OnNext(env, out :> Stream)
-//            async {
-//                do! Async.Sleep 500
-//                let bytes = out.ToArray()
-//                let result = Encoding.ASCII.GetString(bytes)
-//                test <@ result = "Hello, about!" @>
-//            }
-//            |> Async.RunSynchronously
+        testCase "valid GET /about" <| fun _ ->
+            let out = new MemoryStream()
+            let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
+            headers.Add("Host", [|"localhost"|])
+            let env = new Environment(
+                            requestMethod = "GET",
+                            requestScheme = "http",
+                            requestPathBase = "",
+                            requestPath = "/about",
+                            requestQueryString = "",
+                            requestProtocol = "HTTP/1.1",
+                            requestHeaders = (Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>),
+                            responseBody = (out :> Stream))
+            client.OnNext(env, out :> Stream)
+            async {
+                do! Async.Sleep 500
+                let bytes = out.ToArray()
+                let result = Encoding.ASCII.GetString(bytes)
+                test <@ result = "Hello, about!" @>
+            }
+            |> Async.RunSynchronously
 
-//        testCase "valid GET /customers" <| fun _ ->
+        testCase "valid GET /customers" <| fun _ ->
+            let out = new MemoryStream()
+            let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
+            headers.Add("Host", [|"localhost"|])
+            let env = new Environment(
+                            requestMethod = "GET",
+                            requestScheme = "http",
+                            requestPathBase = "",
+                            requestPath = "/customers",
+                            requestQueryString = "",
+                            requestProtocol = "HTTP/1.1",
+                            requestHeaders = headers,
+                            responseBody = (out :> Stream))
+            client.OnNext(env, out :> Stream)
+            async {
+                do! Async.Sleep 500
+                let bytes = out.ToArray()
+                let result = Encoding.ASCII.GetString(bytes)
+                test <@ result = "Hello, customers!" @>
+            }
+            |> Async.RunSynchronously
+
+//        testCase "valid GET /customers/1" <| fun _ ->
 //            let out = new MemoryStream()
+//            let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
+//            headers.Add("Host", [|"localhost"|])
 //            let env = new Environment(
 //                            requestMethod = "GET",
 //                            requestScheme = "http",
-//                            requestPathBase = "/",
-//                            requestPath = "customers",
+//                            requestPathBase = "",
+//                            requestPath = "/customers/1",
 //                            requestQueryString = "",
 //                            requestProtocol = "HTTP/1.1",
-//                            requestHeaders = (Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>),
+//                            requestHeaders = headers,
 //                            responseBody = (out :> Stream))
 //            client.OnNext(env, out :> Stream)
 //            async {
 //                do! Async.Sleep 500
 //                let bytes = out.ToArray()
 //                let result = Encoding.ASCII.GetString(bytes)
-//                test <@ result = "Hello, customers!" @>
+//                test <@ result = "Hello, customer!" @>
 //            }
 //            |> Async.RunSynchronously
     ]
