@@ -58,6 +58,7 @@ type internal ResourceMessage<'TRequest, 'TResponse> =
 type Resource<'TRequest, 'TResponse>(uriTemplate, handlers: HttpMethodHandler<_,_> list, getRequestMethod, send, methodNotAllowedHandler) =
     let allowedMethods = handlers |> List.map (fun m -> m.Method)
     let onError = new Event<exn>()
+    let onSending = new Event<'TResponse>()
     let agent = Agent<ResourceMessage<'TRequest, 'TResponse>>.Start(fun inbox ->
         let rec loop allowedMethods (handlers: HttpMethodHandler<_,_> list) = async {
             let! msg = inbox.Receive()
@@ -67,6 +68,7 @@ type Resource<'TRequest, 'TResponse>(uriTemplate, handlers: HttpMethodHandler<_,
                     match handlers |> List.tryFind (fun h -> h.Method = getRequestMethod request) with
                     | Some h -> h.Handler request
                     | None -> methodNotAllowedHandler allowedMethods request
+                onSending.Trigger(response)
                 do! send out response
                 return! loop allowedMethods handlers
             | SetHandler(handler) ->
@@ -101,6 +103,9 @@ type Resource<'TRequest, 'TResponse>(uriTemplate, handlers: HttpMethodHandler<_,
     /// Provide stream of `exn` for logging purposes.
     [<CLIEvent>]
     member x.Error = onError.Publish
+    /// Provide stream of responses being sent.
+    [<CLIEvent>]
+    member x.Sending = onSending.Publish
 
     /// Implement `IObserver` to allow the `Resource` to subscribe to the request event stream.
     interface IObserver<'TRequest * Stream> with
@@ -196,6 +201,20 @@ type ResourceManager<'TRequest, 'TResponse, 'TRoute when 'TRoute : equality>(get
         member x.OnCompleted() = ()
 
 module Dyfrig =
+    
+    // TODO: Update Dyfrig dependency to get this directly from env.GetRequestUri()
+    type Environment with
+        member env.GetBaseUri() =
+            env.RequestScheme + "://" +
+            (env.RequestHeaders.["Host"].[0]) +
+            if String.IsNullOrEmpty env.RequestPathBase then "/" else env.RequestPathBase
+
+        member env.GetRequestUri() =
+            env.RequestScheme + "://" +
+            (env.RequestHeaders.["Host"].[0]) +
+            env.RequestPathBase +
+            env.RequestPath +
+            if String.IsNullOrEmpty env.RequestQueryString then "" else "?" + env.RequestQueryString
 
     let private requestMethod (env: Environment) = env.RequestMethod
     let private send (out: Stream) (response: byte[]) = out.AsyncWrite(response)
@@ -206,30 +225,17 @@ module Dyfrig =
         |> System.Text.Encoding.ASCII.GetBytes
         |> async.Return
 
-    // TODO: Update Dyfrig dependency to get this directly from env.GetRequestUri()
-    let private reconstructUri (env: Environment) =
-        let uri =
-            env.RequestScheme + "://" +
-            (env.RequestHeaders.["Host"] |> Seq.head) +
-            env.RequestPathBase +
-            env.RequestPath
-                
-        if String.IsNullOrEmpty env.RequestQueryString
-        then uri
-        else uri + "?" + env.RequestQueryString
-
     let private uriMatcher uriTemplate (env: Environment) =
-        "/" + uriTemplate = env.RequestPath
-//        // TODO: Do this with F# rather than System.ServiceModel. This could easily use a Regex pattern.
-//        let template = UriTemplate(uriTemplate)
-//        let requestUri = Uri(reconstructUri env)
-//        let baseUri = requestUri
-//        let result = template.Match(baseUri, requestUri)
-//        // TODO: Return the match result as well as true/false, as we can retrieve parameter values this way.
-//        if result = null then false else
-//        // TODO: Investigate ways to avoid mutation.
-//        env.Add("taliesin.UriTemplateMatch", result) |> ignore
-//        true
+        // TODO: Do this with F# rather than System.ServiceModel. This could easily use a Regex pattern.
+        let template = UriTemplate(uriTemplate)
+        let baseUri = Uri(env.GetBaseUri())
+        let requestUri = Uri(env.GetRequestUri())
+        let result = template.Match(baseUri, requestUri)
+        // TODO: Return the match result as well as true/false, as we can retrieve parameter values this way.
+        if result = null then false else
+        // TODO: Investigate ways to avoid mutation.
+        env.Add("taliesin.UriTemplateMatch", result) |> ignore
+        true
 
     type DyfrigResourceManager<'TRoute when 'TRoute : equality>() =
         inherit ResourceManager<Environment,byte[],'TRoute>(requestMethod, send, notAllowed, uriMatcher)

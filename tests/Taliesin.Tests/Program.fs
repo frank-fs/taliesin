@@ -17,9 +17,17 @@ let tests =
         RouteNode((Root, "", [GET(fun _ -> async.Return "Hello, root!"B)]),
             [
                 RouteLeaf(About, "about", [GET(fun _ -> async.Return "Hello, about!"B)])
-                RouteNode((Customers, "customers", [GET(fun _ -> async.Return "Hello, customers!"B)]),
+                RouteNode((Customers, "customers",
+                            [
+                                GET(fun _ -> async.Return "Hello, customers!"B)
+                                POST(fun _ -> async.Return "Created customer!"B)
+                            ]),
                     [
-                        RouteLeaf(Customer, "{id}", [GET(fun _ -> async.Return "Hello, customer!"B)])
+                        RouteLeaf(Customer, "{id}",
+                            [
+                                GET(fun _ -> async.Return "Hello, customer!"B)
+                                PUT(fun _ -> async.Return "Updated customer!"B)
+                            ])
                     ])
             ])
 
@@ -41,14 +49,11 @@ let tests =
                             requestProtocol = "HTTP/1.1",
                             requestHeaders = headers,
                             responseBody = (out :> Stream))
-            client.OnNext(env, out :> Stream)
-            async {
-                do! Async.Sleep 500
-                let bytes = out.ToArray()
-                let result = Encoding.ASCII.GetString(bytes)
+            resourceManager.[Root].Sending |> Event.add (fun resp ->
+                let result = Encoding.ASCII.GetString(resp)
                 test <@ result = "Hello, root!" @>
-            }
-            |> Async.RunSynchronously
+            )
+            client.OnNext(env, out :> Stream)
 
         testCase "valid GET /about" <| fun _ ->
             let out = new MemoryStream()
@@ -63,14 +68,11 @@ let tests =
                             requestProtocol = "HTTP/1.1",
                             requestHeaders = (Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>),
                             responseBody = (out :> Stream))
-            client.OnNext(env, out :> Stream)
-            async {
-                do! Async.Sleep 500
-                let bytes = out.ToArray()
-                let result = Encoding.ASCII.GetString(bytes)
+            resourceManager.[About].Sending |> Event.add (fun resp ->
+                let result = Encoding.ASCII.GetString(resp)
                 test <@ result = "Hello, about!" @>
-            }
-            |> Async.RunSynchronously
+            )
+            client.OnNext(env, out :> Stream)
 
         testCase "valid GET /customers" <| fun _ ->
             let out = new MemoryStream()
@@ -85,36 +87,68 @@ let tests =
                             requestProtocol = "HTTP/1.1",
                             requestHeaders = headers,
                             responseBody = (out :> Stream))
-            client.OnNext(env, out :> Stream)
-            async {
-                do! Async.Sleep 500
-                let bytes = out.ToArray()
-                let result = Encoding.ASCII.GetString(bytes)
+            resourceManager.[About].Sending |> Event.add (fun resp ->
+                let result = Encoding.ASCII.GetString(resp)
                 test <@ result = "Hello, customers!" @>
-            }
-            |> Async.RunSynchronously
+            )
+            client.OnNext(env, out :> Stream)
 
-//        testCase "valid GET /customers/1" <| fun _ ->
-//            let out = new MemoryStream()
-//            let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
-//            headers.Add("Host", [|"localhost"|])
-//            let env = new Environment(
-//                            requestMethod = "GET",
-//                            requestScheme = "http",
-//                            requestPathBase = "",
-//                            requestPath = "/customers/1",
-//                            requestQueryString = "",
-//                            requestProtocol = "HTTP/1.1",
-//                            requestHeaders = headers,
-//                            responseBody = (out :> Stream))
-//            client.OnNext(env, out :> Stream)
-//            async {
-//                do! Async.Sleep 500
-//                let bytes = out.ToArray()
-//                let result = Encoding.ASCII.GetString(bytes)
-//                test <@ result = "Hello, customer!" @>
-//            }
-//            |> Async.RunSynchronously
+        testCase "valid POST /customers" <| fun _ ->
+            let out = new MemoryStream()
+            let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
+            headers.Add("Host", [|"localhost"|])
+            let env = new Environment(
+                            requestMethod = "POST",
+                            requestScheme = "http",
+                            requestPathBase = "",
+                            requestPath = "/customers",
+                            requestQueryString = "",
+                            requestProtocol = "HTTP/1.1",
+                            requestHeaders = headers,
+                            responseBody = (out :> Stream))
+            resourceManager.[About].Sending |> Event.add (fun resp ->
+                let result = Encoding.ASCII.GetString(resp)
+                test <@ result = "Created customer!" @>
+            )
+            client.OnNext(env, out :> Stream)
+
+        testCase "valid GET /customers/1" <| fun _ ->
+            let out = new MemoryStream()
+            let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
+            headers.Add("Host", [|"localhost"|])
+            let env = new Environment(
+                            requestMethod = "GET",
+                            requestScheme = "http",
+                            requestPathBase = "",
+                            requestPath = "/customers/1",
+                            requestQueryString = "",
+                            requestProtocol = "HTTP/1.1",
+                            requestHeaders = headers,
+                            responseBody = (out :> Stream))
+            resourceManager.[About].Sending |> Event.add (fun resp ->
+                let result = Encoding.ASCII.GetString(resp)
+                test <@ result = "Hello, customer!" @>
+            )
+            client.OnNext(env, out :> Stream)
+
+        testCase "valid PUT /customers/1" <| fun _ ->
+            let out = new MemoryStream()
+            let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
+            headers.Add("Host", [|"localhost"|])
+            let env = new Environment(
+                            requestMethod = "PUT",
+                            requestScheme = "http",
+                            requestPathBase = "",
+                            requestPath = "/customers/1",
+                            requestQueryString = "",
+                            requestProtocol = "HTTP/1.1",
+                            requestHeaders = headers,
+                            responseBody = (out :> Stream))
+            resourceManager.[About].Sending |> Event.add (fun resp ->
+                let result = Encoding.ASCII.GetString(resp)
+                test <@ result = "Updated customer!" @>
+            )
+            client.OnNext(env, out :> Stream)
     ]
 
 [<EntryPoint>]
