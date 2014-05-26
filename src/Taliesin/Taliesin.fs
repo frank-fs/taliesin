@@ -29,35 +29,42 @@ module Dyfrig =
             env.RequestPath +
             if String.IsNullOrEmpty env.RequestQueryString then "" else "?" + env.RequestQueryString
 
-
 type OwinEnv = IDictionary<string, obj>
 type OwinAppFunc = Func<OwinEnv, Task>
 
-type HttpMethod =
-    | GET
-    | HEAD
-    | POST
-    | PUT
-    | PATCH
-    | DELETE
-    | TRACE
-    | OPTIONS
-    | Custom of string
+type HttpMethodHandler =
+    | GET     of OwinAppFunc
+    | HEAD    of OwinAppFunc
+    | POST    of OwinAppFunc
+    | PUT     of OwinAppFunc
+    | PATCH   of OwinAppFunc
+    | DELETE  of OwinAppFunc
+    | TRACE   of OwinAppFunc
+    | OPTIONS of OwinAppFunc
+    | Custom  of string * OwinAppFunc
     with
-    override x.ToString() =
+    member x.Handler =
         match x with
-        | GET     _ -> "GET"
-        | HEAD    _ -> "HEAD"
-        | POST    _ -> "POST"
-        | PUT     _ -> "PUT"
-        | PATCH   _ -> "PATCH"
-        | DELETE  _ -> "DELETE"
-        | TRACE   _ -> "TRACE"
-        | OPTIONS _ -> "OPTIONS"
-        | Custom(m) -> m
-
-/// Message type that associates an `HttpApplication with an HTTP method.
-type internal HttpMethodHandler = HttpMethodHandler of HttpMethod * OwinAppFunc
+        | GET h
+        | HEAD h
+        | POST h
+        | PUT h
+        | PATCH h
+        | DELETE h
+        | TRACE h
+        | OPTIONS h
+        | Custom(_, h) -> h
+    member x.Method =
+        match x with
+        | GET        _ -> "GET"
+        | HEAD       _ -> "HEAD"
+        | POST       _ -> "POST"
+        | PUT        _ -> "PUT"
+        | PATCH      _ -> "PATCH"
+        | DELETE     _ -> "DELETE"
+        | TRACE      _ -> "TRACE"
+        | OPTIONS    _ -> "OPTIONS"
+        | Custom(m, _) -> m
 
 /// Alias `MailboxProcessor<'T>` as `Agent<'T>`.
 type Agent<'T> = MailboxProcessor<'T>
@@ -65,15 +72,17 @@ type Agent<'T> = MailboxProcessor<'T>
 /// Messages used by the HTTP resource agent.
 type internal ResourceMessage =
     | Request of OwinEnv * TaskCompletionSource<unit>
-    | SetHandler of HttpMethod * OwinAppFunc
+    | SetHandler of HttpMethodHandler
     | Error of exn
     | Shutdown
 
 /// An HTTP resource agent.
-type Resource(uriTemplate, allowedMethods: HttpMethod list, methodNotAllowedHandler) =
+type Resource(uriTemplate, handlers: HttpMethodHandler list, methodNotAllowedHandler) =
     let onError = new Event<exn>()
     let onExecuting = new Event<OwinEnv>()
     let onExecuted = new Event<OwinEnv>()
+
+    let allowedMethods = handlers |> List.map (fun h -> h.Method)
     let agent = Agent<ResourceMessage>.Start(fun inbox ->
         let rec loop allowedMethods (handlers: HttpMethodHandler list) = async {
             let! msg = inbox.Receive()
@@ -83,10 +92,10 @@ type Resource(uriTemplate, allowedMethods: HttpMethod list, methodNotAllowedHand
                 let owinEnv = env :> OwinEnv 
                 let foundHandler =
                     handlers
-                    |> List.tryFind (fun (HttpMethodHandler(m, _)) -> m.ToString() = env.RequestMethod)
+                    |> List.tryFind (fun h -> h.Method = env.RequestMethod)
                 let selectedHandler =
                     match foundHandler with
-                    | Some(HttpMethodHandler(_, h)) -> h
+                    | Some(h) -> h.Handler
                     | None -> methodNotAllowedHandler allowedMethods
                 onExecuting.Trigger(owinEnv)
                 do! selectedHandler.Invoke owinEnv |> Async.AwaitTask
@@ -94,14 +103,13 @@ type Resource(uriTemplate, allowedMethods: HttpMethod list, methodNotAllowedHand
                 // TODO: Need to also capture excptions
                 tcs.SetResult()
                 return! loop allowedMethods handlers
-            | SetHandler(httpMethod, handler) ->
-                let foundMethod = allowedMethods |> List.tryFind ((=) httpMethod)
+            | SetHandler(handler) ->
+                let foundMethod = allowedMethods |> List.tryFind ((=) handler.Method)
                 let handlers' =
                     match foundMethod with
-                    | Some _ ->
-                        let handler = HttpMethodHandler(httpMethod, handler)
+                    | Some m ->
                         let otherHandlers = 
-                            handlers |> List.filter (fun (HttpMethodHandler(m,_)) -> m <> httpMethod)
+                            handlers |> List.filter (fun h -> h.Method <> m)
                         handler :: otherHandlers
                     | None -> handlers
                 return! loop allowedMethods handlers'
@@ -111,7 +119,7 @@ type Resource(uriTemplate, allowedMethods: HttpMethod list, methodNotAllowedHand
             | Shutdown -> ()
         }
             
-        loop allowedMethods []
+        loop allowedMethods handlers
     )
 
     /// Connect the resource to the request event stream.
@@ -152,7 +160,7 @@ type Resource(uriTemplate, allowedMethods: HttpMethod list, methodNotAllowedHand
 type UriRouteTemplate = string
 
 /// Defines the route for a specific resource
-type RouteDef<'TName> = 'TName * UriRouteTemplate * HttpMethod list
+type RouteDef<'TName> = 'TName * UriRouteTemplate * HttpMethodHandler list
 
 /// Defines the tree type for specifying resource routes
 /// Example:
@@ -175,13 +183,13 @@ type RouteSpec<'TRoute> =
 module internal ResourceManager =
     open Dyfrig
 
-    let notAllowed (allowedMethods: HttpMethod list) =
+    let notAllowed (allowedMethods: string list) =
         Func<_,_>(fun env ->
             let env = Environment.toEnvironment env
             env.ResponseStatusCode <- 405
             let bytes =
                 allowedMethods
-                |> List.fold (fun a b -> a + " " + b.ToString()) ""
+                |> List.reduce (fun a b -> a + " " + b)
                 |> sprintf "405 Method Not Allowed. Try one of %s"
                 |> System.Text.Encoding.ASCII.GetBytes
             async {

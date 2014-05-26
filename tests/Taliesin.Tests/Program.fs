@@ -12,15 +12,33 @@ type Resources = Root | About | Customers | Customer
 
 [<Tests>]
 let tests =
+    let makeHandler statusCode (content: byte[]) = OwinAppFunc(fun env ->
+        let env = Environment.toEnvironment env
+        env.ResponseStatusCode <- statusCode
+        env.ResponseHeaders.Add("Content-Length", [| string content.Length |])
+        env.ResponseHeaders.Add("Content-Type", [| "text/plain" |])
+        env.ResponseBody.Write(content, 0, content.Length)
+        let tcs = TaskCompletionSource<unit>()
+        tcs.SetResult()
+        tcs.Task :> Task)
 
     let customersSpec =
-        RouteNode((Customers, "customers", [GET; POST]),
-            [ RouteLeaf(Customer, "{id}", [GET; PUT]) ])
+        RouteNode((Customers, "customers",
+                    [
+                        GET(makeHandler 200 "Hello, customers!"B)
+                        POST(makeHandler 201 "Created customer!"B)
+                    ]),
+                    [ RouteLeaf(Customer, "{id}",
+                                [
+                                    GET(makeHandler 200 "Hello, customer!"B)
+                                    PUT(makeHandler 204 "Updated customer!"B)
+                                ])
+                    ])
 
     let spec =
-        RouteNode((Root, "", [GET]),
+        RouteNode((Root, "", [GET(makeHandler 200 "Hello, root!"B)]),
             [
-                RouteLeaf(About, "about", [GET])
+                RouteLeaf(About, "about", [GET(makeHandler 200 "Hello, about!"B)])
                 customersSpec
             ])
 
@@ -140,6 +158,25 @@ let tests =
                 do! resourceManager.Invoke env |> Async.AwaitTask
                 let result = Encoding.ASCII.GetString(out.ToArray())
                 test <@ result = "Updated customer!" @>
+            } |> Async.RunSynchronously
+
+        testCase "invalid DELETE /customers/1" <| fun _ ->
+            let out = new MemoryStream()
+            let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
+            headers.Add("Host", [|"localhost"|])
+            let env = new Environment(
+                            requestMethod = "DELETE",
+                            requestScheme = "http",
+                            requestPathBase = "",
+                            requestPath = "/customers/1",
+                            requestQueryString = "",
+                            requestProtocol = "HTTP/1.1",
+                            requestHeaders = headers,
+                            responseBody = (out :> Stream))
+            async {
+                do! resourceManager.Invoke env |> Async.AwaitTask
+                let result = Encoding.ASCII.GetString(out.ToArray())
+                test <@ result = "405 Method Not Allowed. Try one of GET PUT" @>
             } |> Async.RunSynchronously
     ]
 
