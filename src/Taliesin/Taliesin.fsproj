@@ -44,6 +44,7 @@
   </PropertyGroup>
   <Import Project="$(FSharpTargetsPath)" Condition="Exists('$(FSharpTargetsPath)')" />
   <ItemGroup>
+    <Compile Include="Extensions.fs" />
     <Compile Include="Taliesin.fs" />
     <None Include="packages.config" />
   </ItemGroup>

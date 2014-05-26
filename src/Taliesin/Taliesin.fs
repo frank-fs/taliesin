@@ -1,40 +1,26 @@
-﻿namespace Taliesin
+﻿//----------------------------------------------------------------------------
+//
+// Copyright (c) 2013-2014 Ryan Riley (@panesofglass)
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//----------------------------------------------------------------------------
+namespace Taliesin
 
 open System
 open System.Collections.Generic
 open System.IO
 open System.Threading.Tasks
 open Dyfrig
-
-[<AutoOpen>]
-/// F# extensions
-module Extensions =
-    type Microsoft.FSharp.Control.Async with
-        static member AwaitTask(task: Task) =
-            Async.AwaitTask(task.ContinueWith(Func<_,_>(fun _ -> ())))
-
-
-/// Extensions to the Dyfrig `Environment` until the next version of Dyfrig is published.
-module Dyfrig =
-    
-    // TODO: Update Dyfrig dependency to get this directly from env.GetRequestUri()
-    type Environment with
-        member env.GetBaseUri() =
-            env.RequestScheme + "://" +
-            (env.RequestHeaders.["Host"].[0]) +
-            if String.IsNullOrEmpty env.RequestPathBase then "/" else env.RequestPathBase
-
-        member env.GetRequestUri() =
-            env.RequestScheme + "://" +
-            (env.RequestHeaders.["Host"].[0]) +
-            env.RequestPathBase +
-            env.RequestPath +
-            if String.IsNullOrEmpty env.RequestQueryString then "" else "?" + env.RequestQueryString
-
-/// Type alias for an OWIN environment dictionary.
-type OwinEnv = IDictionary<string, obj>
-/// Type alias for an OWIN `AppFunc`.
-type OwinAppFunc = Func<OwinEnv, Task>
 
 /// Type mapping an `OwinAppFunc` to an HTTP method.
 type HttpMethodHandler =
@@ -204,16 +190,17 @@ module internal ResourceManager =
     /// Default URI matching algorithm
     let uriMatcher uriTemplate (env, _) =
         let env = Environment.toEnvironment env
-        // TODO: Do this with F# rather than System.ServiceModel. This could easily use a Regex pattern.
-        let template = UriTemplate(uriTemplate)
-        let baseUri = Uri(env.GetBaseUri())
-        let requestUri = Uri(env.GetRequestUri())
-        let result = template.Match(baseUri, requestUri)
-        // TODO: Return the match result as well as true/false, as we can retrieve parameter values this way.
-        if result = null then false else
-        // TODO: Investigate ways to avoid mutation.
-        env.Add("taliesin.UriTemplateMatch", result) |> ignore
-        true
+        match env.GetBaseUri(), env.GetRequestUri() with
+        | Some baseUri, Some requestUri ->
+            // TODO: Do this with F# rather than System.ServiceModel. This could easily use a Regex pattern.
+            let template = UriTemplate(uriTemplate)
+            let result = template.Match(Uri baseUri, Uri requestUri)
+            // TODO: Return the match result as well as true/false, as we can retrieve parameter values this way.
+            if result = null then false else
+            // TODO: Investigate ways to avoid mutation.
+            env.Add("taliesin.UriTemplateMatch", result) |> ignore
+            true
+        | _, _ -> false
 
     /// Helper function to reconstruct URI templates for each `Resource`
     let concatUriTemplate baseTemplate template =
@@ -255,6 +242,7 @@ module internal ResourceManager =
 ///     app.Root.Get(fun request -> async { return response })
 type ResourceManager<'TRoute when 'TRoute : equality>() =
     // Should this also be an Agent<'T>?
+    // TODO: Implement load balancing on `Resource`s.
     inherit Dictionary<'TRoute, Resource>(HashIdentity.Structural)
 
     let onRequest = new Event<OwinEnv * TaskCompletionSource<unit>>()
