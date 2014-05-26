@@ -7,12 +7,14 @@ open System.Threading.Tasks
 open Dyfrig
 
 [<AutoOpen>]
+/// F# extensions
 module Extensions =
     type Microsoft.FSharp.Control.Async with
         static member AwaitTask(task: Task) =
             Async.AwaitTask(task.ContinueWith(Func<_,_>(fun _ -> ())))
 
 
+/// Extensions to the Dyfrig `Environment` until the next version of Dyfrig is published.
 module Dyfrig =
     
     // TODO: Update Dyfrig dependency to get this directly from env.GetRequestUri()
@@ -29,9 +31,12 @@ module Dyfrig =
             env.RequestPath +
             if String.IsNullOrEmpty env.RequestQueryString then "" else "?" + env.RequestQueryString
 
+/// Type alias for an OWIN environment dictionary.
 type OwinEnv = IDictionary<string, obj>
+/// Type alias for an OWIN `AppFunc`.
 type OwinAppFunc = Func<OwinEnv, Task>
 
+/// Type mapping an `OwinAppFunc` to an HTTP method.
 type HttpMethodHandler =
     | GET     of OwinAppFunc
     | HEAD    of OwinAppFunc
@@ -43,6 +48,7 @@ type HttpMethodHandler =
     | OPTIONS of OwinAppFunc
     | Custom  of string * OwinAppFunc
     with
+    /// Returns the `OwinAppFunc` assigned to the handler.
     member x.Handler =
         match x with
         | GET h
@@ -54,6 +60,7 @@ type HttpMethodHandler =
         | TRACE h
         | OPTIONS h
         | Custom(_, h) -> h
+    /// Returns the HTTP method assigned to the handler.
     member x.Method =
         match x with
         | GET        _ -> "GET"
@@ -183,6 +190,7 @@ type RouteSpec<'TRoute> =
 module internal ResourceManager =
     open Dyfrig
 
+    /// Default `405 Method Not Allowed` handler
     let notAllowed (allowedMethods: string list) =
         Func<_,_>(fun env ->
             let env = Environment.toEnvironment env
@@ -196,6 +204,7 @@ module internal ResourceManager =
                 do! env.ResponseBody.AsyncWrite(bytes)
             } |> Async.StartAsTask :> Task)
 
+    /// Default URI matching algorithm
     let uriMatcher uriTemplate (env, _) =
         let env = Environment.toEnvironment env
         // TODO: Do this with F# rather than System.ServiceModel. This could easily use a Regex pattern.
@@ -209,32 +218,36 @@ module internal ResourceManager =
         env.Add("taliesin.UriTemplateMatch", result) |> ignore
         true
 
+    /// Helper function to reconstruct URI templates for each `Resource`
     let concatUriTemplate baseTemplate template =
         if String.IsNullOrEmpty baseTemplate then template else baseTemplate + "/" + template
 
+    /// Helper function to construct a `Resource` and connect it to the specified `manager`.
     let addResource manager notAllowed resources subscriptions name uriTemplate allowedMethods =
         let resource = new Resource(uriTemplate, allowedMethods, notAllowed)
         let resources' = (name, resource) :: resources
         let subscriptions' = resource.Connect(manager, uriMatcher) :: subscriptions
         resources', subscriptions'
 
+    /// Helper function to walk the `RouteSpec` and return the collected `Resource`s.
     let rec addResources manager notAllowed uriTemplate resources subscriptions = function
         | RouteNode((name, template, httpMethods), nestedRoutes) ->
             let uriTemplate' = concatUriTemplate uriTemplate template
             let resources', subscriptions' = addResource manager notAllowed resources subscriptions name uriTemplate' httpMethods
-            addNestedResources manager notAllowed uriTemplate' resources' subscriptions' nestedRoutes
+            flattenResources manager notAllowed uriTemplate' resources' subscriptions' nestedRoutes
         | RouteLeaf(name, template, httpMethods) ->
             let uriTemplate' = concatUriTemplate uriTemplate template
             addResource manager notAllowed resources subscriptions name uriTemplate' httpMethods
 
-    and addNestedResources manager notAllowed uriTemplate resources subscriptions routes =
+    /// Flattens the nested `Resource`s found in the `RouteSpec`.
+    and flattenResources manager notAllowed uriTemplate resources subscriptions routes =
         match routes with
         | [] -> resources, subscriptions
         | route::routes ->
             let resources', subscriptions' = addResources manager notAllowed uriTemplate resources subscriptions route
             match routes with
             | [] -> resources', subscriptions'
-            | _ -> addNestedResources manager notAllowed uriTemplate resources' subscriptions' routes
+            | _ -> flattenResources manager notAllowed uriTemplate resources' subscriptions' routes
 
 /// Manages traffic flow within the application to specific routes.
 /// Connect resource handlers using:
@@ -249,6 +262,8 @@ type ResourceManager<'TRoute when 'TRoute : equality>() =
 
     let onRequest = new Event<OwinEnv * TaskCompletionSource<unit>>()
 
+    /// Initializes and starts the `ResourceManager` using the provided `RouteSpec`
+    /// and optional `uriMatcher` algorithm and `methodNotAllowedHandler`.
     member x.Start(routeSpec: RouteSpec<_>, ?uriMatcher, ?methodNotAllowedHandler) =
         let uriMatcher = defaultArg uriMatcher ResourceManager.uriMatcher
         let methodNotAllowedHandler = defaultArg methodNotAllowedHandler ResourceManager.notAllowed
@@ -264,10 +279,12 @@ type ResourceManager<'TRoute when 'TRoute : equality>() =
                 for resource in x.Values do resource.Shutdown()
         }
 
+    /// Invokes the `ResourceManager` with the provided `OwinEnv`.
     member x.Invoke env =
         let tcs = TaskCompletionSource<unit>()
         onRequest.Trigger(env, tcs)
         tcs.Task :> Task
 
     interface IObservable<OwinEnv * TaskCompletionSource<unit>> with
+        /// Subscribes an `observer` to received requests.
         member x.Subscribe(observer) = onRequest.Publish.Subscribe(observer)
