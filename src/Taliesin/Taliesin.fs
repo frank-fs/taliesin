@@ -191,18 +191,15 @@ module internal ResourceManager =
     open Dyfrig
 
     /// Default `405 Method Not Allowed` handler
+    /// See http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.6 
     let notAllowed (allowedMethods: string list) =
         Func<_,_>(fun env ->
             let env = Environment.toEnvironment env
             env.ResponseStatusCode <- 405
-            let bytes =
-                allowedMethods
-                |> List.reduce (fun a b -> a + " " + b)
-                |> sprintf "405 Method Not Allowed. Try one of %s"
-                |> System.Text.Encoding.ASCII.GetBytes
-            async {
-                do! env.ResponseBody.AsyncWrite(bytes)
-            } |> Async.StartAsTask :> Task)
+            env.ResponseHeaders.Add("Allow", allowedMethods |> List.toArray)
+            let tcs = TaskCompletionSource<unit>()
+            tcs.SetResult()
+            tcs.Task :> Task)
 
     /// Default URI matching algorithm
     let uriMatcher uriTemplate (env, _) =

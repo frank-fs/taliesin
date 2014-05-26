@@ -175,8 +175,10 @@ let tests =
                             responseBody = (out :> Stream))
             async {
                 do! resourceManager.Invoke env |> Async.AwaitTask
+                let allowedMethods = env.ResponseHeaders.["Allow"]
+                test <@ allowedMethods = [|"GET";"PUT"|] @>
                 let result = Encoding.ASCII.GetString(out.ToArray())
-                test <@ result = "405 Method Not Allowed. Try one of GET PUT" @>
+                test <@ result = "" @>
             } |> Async.RunSynchronously
     ]
 
