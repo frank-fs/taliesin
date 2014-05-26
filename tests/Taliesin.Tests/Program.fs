@@ -13,25 +13,18 @@ type Resources = Root | About | Customers | Customer
 [<Tests>]
 let tests =
 
+    let customersSpec =
+        RouteNode((Customers, "customers", [GET; POST]),
+            [ RouteLeaf(Customer, "{id}", [GET; PUT]) ])
+
     let spec =
-        RouteNode((Root, "", [GET(fun _ -> async.Return "Hello, root!"B)]),
+        RouteNode((Root, "", [GET]),
             [
-                RouteLeaf(About, "about", [GET(fun _ -> async.Return "Hello, about!"B)])
-                RouteNode((Customers, "customers",
-                            [
-                                GET(fun _ -> async.Return "Hello, customers!"B)
-                                POST(fun _ -> async.Return "Created customer!"B)
-                            ]),
-                    [
-                        RouteLeaf(Customer, "{id}",
-                            [
-                                GET(fun _ -> async.Return "Hello, customer!"B)
-                                PUT(fun _ -> async.Return "Updated customer!"B)
-                            ])
-                    ])
+                RouteLeaf(About, "about", [GET])
+                customersSpec
             ])
 
-    let resourceManager = Dyfrig.DyfrigResourceManager()
+    let resourceManager = ResourceManager()
     let subscription = resourceManager.Start(spec)
     let client = resourceManager :> IObserver<_>
 
@@ -49,11 +42,11 @@ let tests =
                             requestProtocol = "HTTP/1.1",
                             requestHeaders = headers,
                             responseBody = (out :> Stream))
-            resourceManager.[Root].Sending |> Event.add (fun resp ->
-                let result = Encoding.ASCII.GetString(resp)
+            resourceManager.[Root].Sent |> Event.add (fun env ->
+                let result = Encoding.ASCII.GetString(out.ToArray())
                 test <@ result = "Hello, root!" @>
             )
-            client.OnNext(env, out :> Stream)
+            client.OnNext(env)
 
         testCase "valid GET /about" <| fun _ ->
             let out = new MemoryStream()
@@ -66,13 +59,13 @@ let tests =
                             requestPath = "/about",
                             requestQueryString = "",
                             requestProtocol = "HTTP/1.1",
-                            requestHeaders = (Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>),
+                            requestHeaders = headers,
                             responseBody = (out :> Stream))
-            resourceManager.[About].Sending |> Event.add (fun resp ->
-                let result = Encoding.ASCII.GetString(resp)
+            resourceManager.[About].Sent |> Event.add (fun env ->
+                let result = Encoding.ASCII.GetString(out.ToArray())
                 test <@ result = "Hello, about!" @>
             )
-            client.OnNext(env, out :> Stream)
+            client.OnNext(env)
 
         testCase "valid GET /customers" <| fun _ ->
             let out = new MemoryStream()
@@ -87,11 +80,11 @@ let tests =
                             requestProtocol = "HTTP/1.1",
                             requestHeaders = headers,
                             responseBody = (out :> Stream))
-            resourceManager.[About].Sending |> Event.add (fun resp ->
-                let result = Encoding.ASCII.GetString(resp)
+            resourceManager.[About].Sent |> Event.add (fun env ->
+                let result = Encoding.ASCII.GetString(out.ToArray())
                 test <@ result = "Hello, customers!" @>
             )
-            client.OnNext(env, out :> Stream)
+            client.OnNext(env)
 
         testCase "valid POST /customers" <| fun _ ->
             let out = new MemoryStream()
@@ -106,11 +99,11 @@ let tests =
                             requestProtocol = "HTTP/1.1",
                             requestHeaders = headers,
                             responseBody = (out :> Stream))
-            resourceManager.[About].Sending |> Event.add (fun resp ->
-                let result = Encoding.ASCII.GetString(resp)
+            resourceManager.[About].Sent |> Event.add (fun env ->
+                let result = Encoding.ASCII.GetString(out.ToArray())
                 test <@ result = "Created customer!" @>
             )
-            client.OnNext(env, out :> Stream)
+            client.OnNext(env)
 
         testCase "valid GET /customers/1" <| fun _ ->
             let out = new MemoryStream()
@@ -125,11 +118,11 @@ let tests =
                             requestProtocol = "HTTP/1.1",
                             requestHeaders = headers,
                             responseBody = (out :> Stream))
-            resourceManager.[About].Sending |> Event.add (fun resp ->
-                let result = Encoding.ASCII.GetString(resp)
+            resourceManager.[About].Sent |> Event.add (fun env ->
+                let result = Encoding.ASCII.GetString(out.ToArray())
                 test <@ result = "Hello, customer!" @>
             )
-            client.OnNext(env, out :> Stream)
+            client.OnNext(env)
 
         testCase "valid PUT /customers/1" <| fun _ ->
             let out = new MemoryStream()
@@ -144,11 +137,11 @@ let tests =
                             requestProtocol = "HTTP/1.1",
                             requestHeaders = headers,
                             responseBody = (out :> Stream))
-            resourceManager.[About].Sending |> Event.add (fun resp ->
-                let result = Encoding.ASCII.GetString(resp)
+            resourceManager.[About].Sent |> Event.add (fun env ->
+                let result = Encoding.ASCII.GetString(out.ToArray())
                 test <@ result = "Updated customer!" @>
             )
-            client.OnNext(env, out :> Stream)
+            client.OnNext(env)
     ]
 
 [<EntryPoint>]
