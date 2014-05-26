@@ -29,32 +29,6 @@ module Extensions =
         static member AwaitTask(task: Task) =
             Async.AwaitTask(task.ContinueWith(Func<_,_>(fun _ -> ())))
 
-
-/// Extensions to the Dyfrig `Environment` until the next version of Dyfrig is published.
-module Dyfrig =
-    
-    // TODO: Update Dyfrig dependency to get this directly from env.GetRequestUri()
-    type Environment with
-        /// Reconstructs the base request URI from the component parts.
-        member env.GetBaseUri() =
-            if env.RequestHeaders.ContainsKey("Host") then
-                env.RequestScheme + "://" +
-                (env.RequestHeaders.["Host"].[0]) +
-                if String.IsNullOrEmpty env.RequestPathBase then "/" else env.RequestPathBase
-                |> Some
-            else None
-
-        /// Reconstructs the request URI from the component parts.
-        member env.GetRequestUri() =
-            if env.RequestHeaders.ContainsKey("Host") then
-                env.RequestScheme + "://" +
-                (env.RequestHeaders.["Host"].[0]) +
-                env.RequestPathBase +
-                env.RequestPath +
-                if String.IsNullOrEmpty env.RequestQueryString then "" else "?" + env.RequestQueryString
-                |> Some
-            else None
-
 /// Type alias for an OWIN environment dictionary.
 type OwinEnv = IDictionary<string, obj>
 /// Type alias for an OWIN `AppFunc`.
