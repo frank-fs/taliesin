@@ -22,6 +22,13 @@ open System.IO
 open System.Threading.Tasks
 open Dyfrig
 
+/// HTTP method handler interface
+type IHttpMethodHandler =
+    /// Returns the `OwinAppFunc` assigned to the handler.
+    abstract Handler : OwinAppFunc
+    /// Returns the HTTP method assigned to the handler.
+    abstract Method  : string
+
 /// Type mapping an `OwinAppFunc` to an HTTP method.
 type HttpMethodHandler =
     | GET     of OwinAppFunc
@@ -58,6 +65,9 @@ type HttpMethodHandler =
         | TRACE      _ -> "TRACE"
         | OPTIONS    _ -> "OPTIONS"
         | Custom(m, _) -> m
+    interface IHttpMethodHandler with
+        member x.Handler = x.Handler
+        member x.Method  = x.Method
 
 /// Alias `MailboxProcessor<'T>` as `Agent<'T>`.
 type Agent<'T> = MailboxProcessor<'T>
@@ -65,19 +75,19 @@ type Agent<'T> = MailboxProcessor<'T>
 /// Messages used by the HTTP resource agent.
 type internal ResourceMessage =
     | Request of OwinEnv * TaskCompletionSource<unit>
-    | SetHandler of HttpMethodHandler
+    | SetHandler of IHttpMethodHandler
     | Error of exn
     | Shutdown
 
 /// An HTTP resource agent.
-type Resource(uriTemplate, handlers: HttpMethodHandler list, methodNotAllowedHandler) =
+type Resource(uriTemplate, handlers: IHttpMethodHandler list, methodNotAllowedHandler) =
     let onError = new Event<exn>()
     let onExecuting = new Event<OwinEnv>()
     let onExecuted = new Event<OwinEnv>()
 
     let allowedMethods = handlers |> List.map (fun h -> h.Method)
     let agent = Agent<ResourceMessage>.Start(fun inbox ->
-        let rec loop allowedMethods (handlers: HttpMethodHandler list) = async {
+        let rec loop allowedMethods (handlers: IHttpMethodHandler list) = async {
             let! msg = inbox.Receive()
             match msg with
             | Request(env, tcs) ->
@@ -150,10 +160,11 @@ type Resource(uriTemplate, handlers: HttpMethodHandler list, methodNotAllowedHan
 
 
 /// Type alias for URI templates
-type UriRouteTemplate = string
+type IUriRouteTemplate =
+    abstract UriTemplate : string
 
 /// Defines the route for a specific resource
-type RouteDef<'TName> = 'TName * UriRouteTemplate * HttpMethodHandler list
+type RouteDef<'TName when 'TName :> IUriRouteTemplate> = 'TName * IHttpMethodHandler list
 
 /// Defines the tree type for specifying resource routes
 /// Example:
@@ -167,7 +178,7 @@ type RouteDef<'TName> = 'TName * UriRouteTemplate * HttpMethodHandler list
 ///                 RouteLeaf(Customer, "{id}", [GET; PUT; DELETE])
 ///             ])
 ///         ])            
-type RouteSpec<'TRoute> =
+type RouteSpec<'TRoute when 'TRoute :> IUriRouteTemplate> =
     | RouteLeaf of RouteDef<'TRoute>
     | RouteNode of RouteDef<'TRoute> * RouteSpec<'TRoute> list
 
@@ -215,12 +226,12 @@ module internal ResourceManager =
 
     /// Helper function to walk the `RouteSpec` and return the collected `Resource`s.
     let rec addResources manager notAllowed uriTemplate resources subscriptions = function
-        | RouteNode((name, template, httpMethods), nestedRoutes) ->
-            let uriTemplate' = concatUriTemplate uriTemplate template
+        | RouteNode((name, httpMethods), nestedRoutes) ->
+            let uriTemplate' = concatUriTemplate uriTemplate name.UriTemplate
             let resources', subscriptions' = addResource manager notAllowed resources subscriptions name uriTemplate' httpMethods
             flattenResources manager notAllowed uriTemplate' resources' subscriptions' nestedRoutes
-        | RouteLeaf(name, template, httpMethods) ->
-            let uriTemplate' = concatUriTemplate uriTemplate template
+        | RouteLeaf(name, httpMethods) ->
+            let uriTemplate' = concatUriTemplate uriTemplate name.UriTemplate
             addResource manager notAllowed resources subscriptions name uriTemplate' httpMethods
 
     /// Flattens the nested `Resource`s found in the `RouteSpec`.
@@ -240,7 +251,7 @@ module internal ResourceManager =
 /// A type provider could make this much nicer, e.g.:
 ///     let app = ResourceManager<"path/to/spec/as/string">
 ///     app.Root.Get(fun request -> async { return response })
-type ResourceManager<'TRoute when 'TRoute : equality>() =
+type ResourceManager<'TRoute when 'TRoute : equality and 'TRoute :> IUriRouteTemplate>() =
     // Should this also be an Agent<'T>?
     // TODO: Implement load balancing on `Resource`s.
     inherit Dictionary<'TRoute, Resource>(HashIdentity.Structural)

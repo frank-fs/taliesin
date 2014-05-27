@@ -9,6 +9,14 @@ open Swensen.Unquote
 open Taliesin
 
 type Resources = Root | About | Customers | Customer
+    with
+    interface IUriRouteTemplate with
+        member x.UriTemplate =
+            match x with
+            | Root -> ""
+            | About -> "about"
+            | Customers -> "customers"
+            | Customer -> "{id}"
 
 [<Tests>]
 let tests =
@@ -23,12 +31,12 @@ let tests =
         tcs.Task :> Task)
 
     let customersSpec =
-        RouteNode((Customers, "customers",
+        RouteNode((Customers,
                     [
                         GET(makeHandler 200 "Hello, customers!"B)
                         POST(makeHandler 201 "Created customer!"B)
                     ]),
-                    [ RouteLeaf(Customer, "{id}",
+                    [ RouteLeaf(Customer,
                                 [
                                     GET(makeHandler 200 "Hello, customer!"B)
                                     PUT(makeHandler 204 "Updated customer!"B)
@@ -36,9 +44,9 @@ let tests =
                     ])
 
     let spec =
-        RouteNode((Root, "", [GET(makeHandler 200 "Hello, root!"B)]),
+        RouteNode((Root, [GET(makeHandler 200 "Hello, root!"B)]),
             [
-                RouteLeaf(About, "about", [GET(makeHandler 200 "Hello, about!"B)])
+                RouteLeaf(About, [GET(makeHandler 200 "Hello, about!"B)])
                 customersSpec
             ])
 
