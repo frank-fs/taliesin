@@ -50,11 +50,10 @@ let tests =
                 customersSpec
             ])
 
-    let resourceManager = ResourceManager<Resources>()
-    let subscription = resourceManager.Start(spec)
-
     testList "dyfrig" [
         testCase "valid GET /" <| fun _ ->
+            let resourceManager = ResourceManager<Resources>()
+            let subscription = resourceManager.Start(spec)
             let out = new MemoryStream()
             let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
             headers.Add("Host", [|"localhost"|])
@@ -73,7 +72,11 @@ let tests =
                 test <@ result = "Hello, root!" @>
             } |> Async.RunSynchronously
 
+            subscription.Dispose()
+
         testCase "valid GET /about" <| fun _ ->
+            let resourceManager = ResourceManager<Resources>()
+            let subscription = resourceManager.Start(spec)
             let out = new MemoryStream()
             let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
             headers.Add("Host", [|"localhost"|])
@@ -92,7 +95,11 @@ let tests =
                 test <@ result = "Hello, about!" @>
             } |> Async.RunSynchronously
 
+            subscription.Dispose()
+
         testCase "valid GET /customers" <| fun _ ->
+            let resourceManager = ResourceManager<Resources>()
+            let subscription = resourceManager.Start(spec)
             let out = new MemoryStream()
             let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
             headers.Add("Host", [|"localhost"|])
@@ -111,7 +118,11 @@ let tests =
                 test <@ result = "Hello, customers!" @>
             } |> Async.RunSynchronously
 
+            subscription.Dispose()
+
         testCase "valid POST /customers" <| fun _ ->
+            let resourceManager = ResourceManager<Resources>()
+            let subscription = resourceManager.Start(spec)
             let out = new MemoryStream()
             let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
             headers.Add("Host", [|"localhost"|])
@@ -130,7 +141,11 @@ let tests =
                 test <@ result = "Created customer!" @>
             } |> Async.RunSynchronously
 
+            subscription.Dispose()
+
         testCase "valid GET /customers/1" <| fun _ ->
+            let resourceManager = ResourceManager<Resources>()
+            let subscription = resourceManager.Start(spec)
             let out = new MemoryStream()
             let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
             headers.Add("Host", [|"localhost"|])
@@ -149,7 +164,11 @@ let tests =
                 test <@ result = "Hello, customer!" @>
             } |> Async.RunSynchronously
 
+            subscription.Dispose()
+
         testCase "valid PUT /customers/1" <| fun _ ->
+            let resourceManager = ResourceManager<Resources>()
+            let subscription = resourceManager.Start(spec)
             let out = new MemoryStream()
             let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
             headers.Add("Host", [|"localhost"|])
@@ -168,7 +187,11 @@ let tests =
                 test <@ result = "Updated customer!" @>
             } |> Async.RunSynchronously
 
+            subscription.Dispose()
+
         testCase "invalid DELETE /customers/1" <| fun _ ->
+            let resourceManager = ResourceManager<Resources>()
+            let subscription = resourceManager.Start(spec)
             let out = new MemoryStream()
             let headers = Dictionary<_,_>(StringComparer.Ordinal) :> IDictionary<_,_>
             headers.Add("Host", [|"localhost"|])
@@ -188,6 +211,8 @@ let tests =
                 let result = Encoding.ASCII.GetString(out.ToArray())
                 test <@ result = "" @>
             } |> Async.RunSynchronously
+
+            subscription.Dispose()
     ]
 
 [<EntryPoint>]

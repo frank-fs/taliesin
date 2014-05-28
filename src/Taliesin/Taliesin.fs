@@ -76,15 +76,10 @@ type Agent<'T> = MailboxProcessor<'T>
 type internal ResourceMessage =
     | Request of OwinEnv * TaskCompletionSource<unit>
     | SetHandler of IHttpMethodHandler
-    | Error of exn
     | Shutdown
 
 /// An HTTP resource agent.
 type Resource(uriTemplate, handlers: IHttpMethodHandler list, methodNotAllowedHandler) =
-    let onError = new Event<exn>()
-    let onExecuting = new Event<OwinEnv>()
-    let onExecuted = new Event<OwinEnv>()
-
     let allowedMethods = handlers |> List.map (fun h -> h.Method)
     let agent = Agent<ResourceMessage>.Start(fun inbox ->
         let rec loop allowedMethods (handlers: IHttpMethodHandler list) = async {
@@ -100,9 +95,7 @@ type Resource(uriTemplate, handlers: IHttpMethodHandler list, methodNotAllowedHa
                     match foundHandler with
                     | Some(h) -> h.Handler
                     | None -> methodNotAllowedHandler allowedMethods
-                onExecuting.Trigger(owinEnv)
                 do! selectedHandler.Invoke owinEnv |> Async.AwaitTask
-                onExecuted.Trigger(owinEnv)
                 // TODO: Need to also capture excptions
                 tcs.SetResult()
                 return! loop allowedMethods handlers
@@ -116,9 +109,6 @@ type Resource(uriTemplate, handlers: IHttpMethodHandler list, methodNotAllowedHa
                         handler :: otherHandlers
                     | None -> handlers
                 return! loop allowedMethods handlers'
-            | Error exn ->
-                onError.Trigger(exn)
-                return! loop allowedMethods handlers
             | Shutdown -> ()
         }
             
@@ -142,20 +132,10 @@ type Resource(uriTemplate, handlers: IHttpMethodHandler list, methodNotAllowedHa
     /// Stops the resource agent.
     member x.Shutdown() = agent.Post Shutdown
 
-    /// Provide stream of `exn` for logging purposes.
-    [<CLIEvent>]
-    member x.Error = onError.Publish
-    /// Provide stream of environments before executing the request handler.
-    [<CLIEvent>]
-    member x.Executing = onExecuting.Publish
-    /// Provide stream of environments after executing the request handler.
-    [<CLIEvent>]
-    member x.Executed = onExecuted.Publish
-
     /// Implement `IObserver` to allow the `Resource` to subscribe to the request event stream.
     interface IObserver<OwinEnv * TaskCompletionSource<unit>> with
         member x.OnNext(value) = agent.Post <| Request value
-        member x.OnError(exn) = agent.Post <| Error exn
+        member x.OnError(exn) = () // Ignore host level errors.
         member x.OnCompleted() = agent.Post Shutdown
 
 

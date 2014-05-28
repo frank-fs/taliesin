@@ -1,3 +1,6 @@
+### New in 0.3.0 - (2014/05/27)
+* Remove Error, Executing, and Executed events from Resource.
+
 ### New in 0.2.0 - (2014/05/27)
 * Add additional interfaces to further refine types required by the `RouteSpec`
  * Now must implement `IUriRouteTemplate`, which requires a `UriTemplate` member
