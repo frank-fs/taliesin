@@ -1,3 +1,6 @@
+### New in 0.3.1 - (2014/05/28)
+* Updated Dyfrig dependency due to bug fix
+
 ### New in 0.3.0 - (2014/05/27)
 * Remove Error, Executing, and Executed events from Resource.
 

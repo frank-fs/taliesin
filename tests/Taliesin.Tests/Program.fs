@@ -1,6 +1,8 @@
 ﻿open System
 open System.Collections.Generic
 open System.IO
+open System.Net
+open System.Net.Http
 open System.Text
 open System.Threading.Tasks
 open Dyfrig
@@ -29,26 +31,38 @@ let tests =
         let tcs = TaskCompletionSource<unit>()
         tcs.SetResult()
         tcs.Task :> Task)
+    
+    let makeHttpHandler statusCode (data: byte[]) =
+        let handler (request: HttpRequestMessage) =
+            let content = new ByteArrayContent(data)
+            content.Headers.ContentLength <- Nullable data.LongLength
+            content.Headers.ContentType <- Headers.MediaTypeHeaderValue("text/plain")
+            new HttpResponseMessage(statusCode, Content = content, RequestMessage = request)
+            |> async.Return
+        Dyfrig.SystemNetHttpAdapter.fromAsyncSystemNetHttp handler
+
+    let customerSpec =
+        RouteLeaf(Customer,
+                  [
+                      GET(makeHandler 200 "Hello, customer!"B)
+                      PUT(makeHttpHandler HttpStatusCode.NoContent "Updated customer!"B)
+                  ])
 
     let customersSpec =
         RouteNode((Customers,
-                    [
-                        GET(makeHandler 200 "Hello, customers!"B)
-                        POST(makeHandler 201 "Created customer!"B)
-                    ]),
-                    [ RouteLeaf(Customer,
-                                [
-                                    GET(makeHandler 200 "Hello, customer!"B)
-                                    PUT(makeHandler 204 "Updated customer!"B)
-                                ])
-                    ])
+                   [
+                       GET(makeHttpHandler HttpStatusCode.OK "Hello, customers!"B)
+                       POST(makeHandler 201 "Created customer!"B)
+                   ]),
+                   [ customerSpec ])
 
     let spec =
-        RouteNode((Root, [GET(makeHandler 200 "Hello, root!"B)]),
-            [
-                RouteLeaf(About, [GET(makeHandler 200 "Hello, about!"B)])
-                customersSpec
-            ])
+        RouteNode((Root,
+                   [GET(makeHandler 200 "Hello, root!"B)]),
+                   [
+                       RouteLeaf(About, [GET(makeHandler 200 "Hello, about!"B)])
+                       customersSpec
+                   ])
 
     testList "dyfrig" [
         testCase "valid GET /" <| fun _ ->
